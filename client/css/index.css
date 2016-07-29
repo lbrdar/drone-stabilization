@@ -1,0 +1,113 @@
+#track {
+    background-color: #f5f5f5;
+}
+
+body{
+//background-image: url('../img/blk-bg.png');
+}
+#streams {
+
+}
+.fixed-link {
+    position:fixed;
+    bottom:10px;
+    right: 10px;
+}
+
+.fixed-link2 {
+    position:fixed;
+    bottom:10px;
+    right: 60px;
+}
+
+.fixed-link3 {
+    position:fixed;
+    bottom:10px;
+    right: 110px;
+}
+
+header {
+    background-color: #f5f5f5;
+}
+
+header img {
+    width:700px;
+    height:50px;
+}
+
+.left{
+    float:left;
+}
+
+#video canvas {
+
+}
+
+#preview {
+    background-color: #ffffff;
+    clear:both;
+    color:#f5f5f5;
+    padding:10px;
+}
+
+input{
+    width:50px;
+}
+
+#test-img {
+    display:none;
+    width:640px;
+    height:360px;
+}
+h4{
+    clear:both;
+}
+
+#targetRadius {
+    background-color: seashell;
+    text-align: center;
+    padding:5px;
+    cursor:pointer;
+}
+
+/*CSS for Left Widgets*/
+.widget-container {
+
+    width:200px;
+    height: 720px;
+    background-color: #cccccc;
+   // background-image: url('../img/prpl-bg.png')
+}
+.widget {
+    margin:5px;
+    padding:5px;
+    background-color: rgba(255,255,255,.5)
+}
+#leftWidgets {
+
+}
+
+#maxDiff {
+    width: 100%;
+}
+
+/*CSS for Right Widgets*/
+#rightWidgets {
+
+}
+
+.color-info {
+
+    font-size: 18px;
+    list-style: none;
+}
+.color-info li {
+    display:inline;
+    padding:5px;
+    font-size:16px;
+}
+#pickedColor{
+    background-color: #ffffff;
+    color:#f5f5f5;
+    padding:10px;
+}

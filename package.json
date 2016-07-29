@@ -1,0 +1,16 @@
+{
+  "name": "chat-example",
+  "version": "0.0.0",
+  "description": "A chat example to showcase how to use `socket.io` with a static `express` server with `async` for control flow.",
+  "main": "server.js",
+  "repository": "",
+  "author": "Mostafa Eweda <mo.eweda@gmail.com>",
+  "dependencies": {
+    "dronestream": "git://github.com/felixge/node-dronestream.git#soccer",
+    "ws": "~1.0.1",
+    "ar-drone": "git://github.com/felixge/node-ar-drone.git",
+    "angular": "~1.4.8",
+    "express": "~4.13.3",
+    "resemblejs": "~2.1.0"
+  }
+}
