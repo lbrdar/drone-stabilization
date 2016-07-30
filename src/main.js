@@ -1,45 +1,60 @@
 var myApp = angular.module('myApp', []);
-//var resemble = require("resemblejs");
 
 var videoDiv = document.getElementById('video');
 var ns = new NodecopterStream(videoDiv, {port: 5555});
 var videoCanvas = videoDiv.querySelector('canvas');
-var ctx = videoCanvas.getContext("2d");
 var frameBuffer = new Uint8Array(videoCanvas.width * videoCanvas.height * 4);
+var pickedColor = [192, 60, 60];
+var detected;
 var client = new WsClient();
 
-var cw = videoCanvas.width;
-var ch = videoCanvas.height;
-//var fps = 200;
 
-//ar resembleControl;
-var nextImage = frameBuffer;
-var stabImage = frameBuffer;
-//ns.getImageData(stabImage);
+var track = document.getElementById('track');
+track.width = 640;
+track.height = 360;
+var ctx = track.getContext("2d");
+ctx.fillStyle = "#FF0000";
+
+//options
+var w = videoCanvas.width;
+var h = videoCanvas.height;
+var nextImg = frameBuffer;
+var stabImg = frameBuffer;
+var state;
+
 
 var CameraModes = {FRONT_FOLLOW:"front-follow", BOTTOM_FOLLOW:"bottom-follow"};
 var camera_mode = CameraModes.FRONT_FOLLOW;
 
 myApp.controller('Controller', ['$scope', function ($scope) {
-
+   var tempNavdata;
     client.on('navdata', function loginNavData(navdata){
         if(navdata != null && navdata.demo != null) {
             $scope.battery = navdata.demo.batteryPercentage;
+            tempNavdata = navdata;
             $('#battery').attr('value', navdata.demo.batteryPercentage);
         }
     });
 
-    /*var timer = setInterval($scope.mainLoop, fps);
-    
-    $scope.mainLoop = function(){       //main function for reading drone stream and image manipulation
-            clearInterval(timer);
-            ctx.clearRect(0, 0, w, h);
-            detectChange();
-            timer = setInterval($scope.mainLoop, fps);
-    };*/
-    
+    //$scope.battery;
+    $scope.fps = 5000;
+
+    setState('ground');
+
+    $scope.mainLoop = function(){ //main function for reading drone stream and rendering detection visualization
+        clearInterval(interval);
+        console.log('Usao u mainLoop')
+        //ponavljajuca glavna funkcija
+        detectImage();
+
+        interval = setInterval($scope.mainLoop, $scope.fps);
+    }
+
+    var interval = setInterval($scope.mainLoop, $scope.fps);
+
     $scope.switchCamera = function() {
         // access the head camera
+
         client.camera();
         if(camera_mode == CameraModes.FRONT_FOLLOW){
             camera_mode = CameraModes.BOTTOM_FOLLOW;
@@ -48,68 +63,91 @@ myApp.controller('Controller', ['$scope', function ($scope) {
             camera_mode = CameraModes.FRONT_FOLLOW;
         }
             console.log(camera_mode);
-    };
-
-    stabImage = ns.getImageData;
-
-    function detectChange(){
-        nextImage = frameBuffer;
-        //ns.getImageData(nextImage);
-
-        //resembleControl = resemble(nextImage).compareTo(stabImage).onComplete(onComplete);
     }
 
-    function onComplete(data){
-        console.log('Change found');
-        console.log(data);
+    function detectImage(){
+        nextImg = frameBuffer;
+        ns.getImageData(nextImg);
+        var imageData = ctx.createImageData(w,h);
+        var canvData = imageData.data;
 
-        //var diffImage = new Image();
+        for (var i = canvData.length; i > 0; i -= 4) {
+            canvData[i] = nextImg[i];
+            canvData[i - 1] = nextImg[i - 1];
+            canvData[i - 2] = nextImg[i - 2];
+            canvData[i - 3] = nextImg[i - 3];
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
 
-        /*if(data.misMatchPercentage == 0){
-            $('#thesame').show();
-            $('#diff-results').hide();
-        } else {
-            $('#mismatch').text(data.misMatchPercentage);
-            if(!data.isSameDimensions){
-                $('#differentdimensions').show();
-            } else {
-                $('#differentdimensions').hide();
+    var stabilize = document.getElementById('stabilize');
+    stabilize.addEventListener('click', function () {
+        stabImg = frameBuffer;
+        ns.getImageData(stabImg);
+        console.log(stabImg);
+    });
+
+    //dodatno koristenje ns.getimagedata
+
+    //TODO implement yRadius/xRadius average for better consistency
+    /*function getRadius(xCenter, yCenter){
+        var s = frameBuffer;
+       // var sL = frameBuffer;
+        var xDis = Math.abs(w-xCenter);
+        ns.getImageData(s, xCenter, h-yCenter, xDis, 1);
+        //ns.getImageData(sL, 0, h-yCenter, xCenter, 1);
+
+        //get farthest x to the right
+        var farthestXRight = 0;
+
+        for(var i=0; i < (xDis*4);i+=4){
+            var isMatch = (Math.abs(s[i] - pickedColor[0]) / 255 < maxDiff
+            && Math.abs(s[i+1] - pickedColor[1]) / 255 < maxDiff
+            && Math.abs(s[i+2] - pickedColor[2]) / 255 < maxDiff);
+            if(isMatch){
+                farthestXRight = i/4;
             }
-            $('#diff-results').show();
-            $('#thesame').hide();
-        }*/
-    }
-    
+        }
+
+        return farthestXRight;
+    }*/
+
     var flightButton = document.getElementById('flight');
     flightButton.addEventListener('click', function () {
 
         if (this.textContent === 'Start') {
-            //setState('takeoff');
-            client.takeoff();
+            setState('takeoff');
+            client.takeoff(function () {
+                setState('follow');
+            });
             this.textContent = 'Stop';
         } else {
-            //setState('land');
-            client.land();
+            setState('land');
+            client.land(function () {
+                setState('ground');
+            });
             this.textContent = 'Start';
         }
     });
 
-    var imageDiffButton = document.getElementById('img-diff');
-    imageDiffButton.addEventListener('click', function () {
-        console.log('Button img-diff click');
-        detectChange();
-    });
-    
 }]);
+
+
+function setState(val) {
+    console.log('new state: ' + val);
+    this.state = val;
+}
 
 function WsClient() { //WsClient sends drone flight commands to the server
     this._conn = null;
     this._connected = false;
     this._queue = [];
     this._listeners = {};
+    this._takeoffCbs = [];
+    this._landCbs = [];
 
     var self = this;
-    self._conn = new WebSocket('ws://localhost:3000');
+    self._conn = new WebSocket('ws://' + window.location.host);
     self._conn.onopen = function () {
         self._connected = true;
         self._queue.forEach(function (msg) {
@@ -154,7 +192,7 @@ function WsClient() { //WsClient sends drone flight commands to the server
 
 WsClient.prototype._connect = function () {
     var self = this;
-    self._conn = new WebSocket('ws://localhost:3001');
+    self._conn = new WebSocket('ws://' + window.location.host);
     self._conn.onopen = function () {
         self._connected = true;
         self._queue.forEach(function (msg) {
@@ -171,6 +209,18 @@ WsClient.prototype._connect = function () {
             }
             var kind = msg.shift();
             switch (kind) {
+                case 'takeoff':
+                    self._takeoffCbs.forEach(function (cb) {
+                        cb();
+                    });
+                    self._takeoffCbs = [];
+                    break;
+                case 'land':
+                    self._landCbs.forEach(function (cb) {
+                        cb();
+                    });
+                    self._landCbs = [];
+                    break;
                 case 'on':
                     var event = msg.shift();
                     self._listeners[event].forEach(function (cb) {
@@ -202,10 +252,6 @@ WsClient.prototype.on = function (event, cb) {
     }
 };
 
-WsClient.prototype.camera = function () {
-    this._send(['camera']);
-};
-
 WsClient.prototype.takeoff = function (cb) {
     this._send(['takeoff']);
     if (cb) {
@@ -219,3 +265,34 @@ WsClient.prototype.land = function (cb) {
         this._landCbs.push(cb);
     }
 };
+
+WsClient.prototype.right = function (val) {
+    this._send(['right', val]);
+};
+
+WsClient.prototype.clockwise = function (val) {
+    this._send(['clockwise', val]);
+};
+
+WsClient.prototype.up = function (val) {
+    this._send(['up', val]);
+};
+
+WsClient.prototype.front = function (val) {
+    this._send(['front', val]);
+};
+
+WsClient.prototype.stop = function () {
+    this._send(['stop']);
+};
+
+WsClient.prototype.camera = function () {
+    this._send(['camera']);
+};
+
+
+
+
+
+
+
