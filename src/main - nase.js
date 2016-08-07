@@ -4,14 +4,9 @@ var videoDiv = document.getElementById('video');
 var ns = new NodecopterStream(videoDiv, {port: 5555});
 var videoCanvas = videoDiv.querySelector('canvas');
 var frameBuffer = new Uint8Array(videoCanvas.width * videoCanvas.height * 4);
-var pickedColor = [172, 107, 35];
+var pickedColor = [192, 60, 60];
 var detected;
 var client = new WsClient();
-
-/*//TODO replace xVal/yVal with PID controllers implementation
-var xPID = new PID({pGain: 0.1, iGain: 0, dGain: 0});
-var yPID = new PID({pGain: 0.1, iGain: 0, dGain: 0});
-var zPID = new PID({pGain: 0.1, iGain: 0, dGain: 0});*/
 
 var track = document.getElementById('track');
 track.width = 640;
@@ -20,141 +15,46 @@ var ctx = track.getContext("2d");
 ctx.fillStyle = "#FF0000";
 
 //options
-var maxDiff = 0.01;
 var w = videoCanvas.width;
 var h = videoCanvas.height;
+var nextImg = frameBuffer;
+var stabImg = frameBuffer;
+var c = frameBuffer;
 var b = frameBuffer;
-var c = new Uint8Array(4);
-var averagePixel;
-var count;
-var lastCount;
 var state;
-var initRadi = 0;
-var stab = 0;
+var test;
+var count;
+var averagePixel;
 
 
 var CameraModes = {FRONT_FOLLOW:"front-follow", BOTTOM_FOLLOW:"bottom-follow"};
 var camera_mode = CameraModes.FRONT_FOLLOW;
 
-
-function getMaxOfArray(numArray) {
-  return Math.max.apply(null, numArray);
-}
-
-//TODO implement yRadius/xRadius average for better consistency
-function getRadius(xCenter, yCenter){
-    var s = frameBuffer;
-    var n = 5;      //number of rows to be taken in calculation of radius
-    var maxRadi = 0;
-   // var sL = frameBuffer;
-    var xDis = Math.abs(w-xCenter);
-    ns.getImageData(s, xCenter, h-yCenter, xDis, n);
-    //ns.getImageData(sL, 0, h-yCenter, xCenter, 1);
-
-    //get farthest x to the right
-    var farthestXRight = [0];
-
-    for(var j=0; j < n; j++){
-        //xDis*4 je duzina jednog reda
-        for(var i=0; i < (xDis*4);i+=4){
-            var isMatch = (Math.abs(s[i + (xDis*4*j)] - pickedColor[0]) / 255 < maxDiff
-            && Math.abs(s[i+1 + (xDis*4*j)] - pickedColor[1]) / 255 < maxDiff
-            && Math.abs(s[i+2 + (xDis*4*j)] - pickedColor[2]) / 255 < maxDiff);
-            if(isMatch){
-                farthestXRight[j] = i/4;
-            }
-        }
-    }
-    maxRadi = getMaxOfArray(farthestXRight);
-    //console.log("farthestXRight = ", maxRadi);
-    return maxRadi;
-}
-
-
 myApp.controller('Controller', ['$scope', function ($scope) {
    var tempNavdata;
     client.on('navdata', function loginNavData(navdata){
         if(navdata != null && navdata.demo != null) {
-            //console.log("altitude: " + navdata.demo.altitudeMeters + " battery: " + navdata.demo.batteryPercentage);
             $scope.battery = navdata.demo.batteryPercentage;
-            $scope.altitude = navdata.demo.altitudeMeters;
             tempNavdata = navdata;
             $('#battery').attr('value', navdata.demo.batteryPercentage);
         }
     });
 
-    $scope.fps = 500;
-    $scope.battery;
-    $scope.altitude;
-    $scope.altitudeTarget = 1;
+    //$scope.battery;
+    $scope.fps = 1000;
 
     setState('ground');
 
-    var y;
-    var x;
-    var xVal;
-    var yVal;
-    var radi;
-    var radidiff;
     $scope.mainLoop = function(){ //main function for reading drone stream and rendering detection visualization
-            clearInterval(interval);
+        clearInterval(interval);
+        ctx.clearRect(0, 0, w, h);
 
-            if(stab){
-
-                ctx.clearRect(0, 0, w, h);
-
-                //main color detection method and optimizes the color range
-                detectColor();
-                //color info
-                updateUIText();
-                //draw cross-hairs at center of detected object
-                drawCrossHair(detected.x,detected.y);
-
-                xVal = (detected.x - w / 2) / (w / 2);
-                yVal = (detected.y - h/2) / (h/2);
-
-                if(initRadi == 0){
-                    initRadi = getRadius(detected.x, detected.y);
-                }
-
-                radi = getRadius(detected.x, detected.y);
-
-                radidiff = radi - initRadi;
-
-                //Uncomment for radius logs
-                //console.log("Scope target radius: ", $scope.targetRadius);
-                //console.log("r --> "+radi+"; dif --> "+radidiff+"; init -->"+initRadi);
-
-                //Uncomment to log location info
-                // console.log("|xVal: "+xVal+"|# Detected: "+count+"|X: "+Math.round(detected.x)+ "|Y: "+Math.round(detected.y)+"|AvgPixel: "+averagePixel.r);
-
-                //If tracking a color submit movement commands based on how far the detected object is from the center of the field of view
-                if (state === "follow" && !isNaN(xVal) && !isNaN(yVal)) {
-                    if (camera_mode == CameraModes.FRONT_FOLLOW) {
-                        followFront(xVal,yVal,radi,radidiff);
-
-                    } else if(camera_mode == CameraModes.BOTTOM_FOLLOW){
-                        followBottom(xVal,yVal);
-                    }
-                    else {
-                        client.stop();
-                    }
-                } else {
-                    client.stop();
-                }
-
-            }
+        detectColor();
 
         interval = setInterval($scope.mainLoop, $scope.fps);
     }
 
     var interval = setInterval($scope.mainLoop, $scope.fps);
-
-    //Sets the radius that the drone will attempt to maintain while tracking
-    $scope.targetRadius = 0;
-    $scope.setTargetRadius = function() {
-        $scope.targetRadius = getRadius(detected.x, detected.y);
-    }
 
     $scope.switchCamera = function() {
         // access the head camera
@@ -169,64 +69,9 @@ myApp.controller('Controller', ['$scope', function ($scope) {
             console.log(camera_mode);
     }
 
-    function followBottom(xVal,yVal){
-        client.right(xVal/6);
-        client.back(yVal/6);
-        if($scope.altitude < $scope.altitudeTarget) {
-            client.up(.05);
-        }
-        else {
-            client.down(.05);
-        }
-    }
-
-    function followFront(xVal, yVal, radi, radidiff){
-        
-        if (xVal > 0) {
-            client.right(xVal / 20);
-        }else if(xVal < 0){
-            client.left(-xVal / 20);
-        }else{
-            client.stop();
-        }
-        
-        if(yVal > 0){
-            client.up(yVal / 20);
-        }else if(yVal < 0){
-            client.down(-yVal / 20);
-        }else{
-            client.stop();
-        }
-        
-        
-        if (radidiff < 0) {
-            client.front(.02);
-        }
-        else if(radidiff > 0) {
-            client.back(.02);
-        } else{
-            client.stop();
-        }
-
-        /*client.clockwise(xVal / 12);
-        if(yVal > 0)
-        client.down(yVal / 16);
-        if(radi > 10) {
-            if (radidiff < 0) {
-                client.front(.02);
-            }
-            else if(radidiff > 0) {
-                client.back(.02);
-            }
-        } else{
-            client.stop();
-        }*/
-    }
-
-
     function detectColor(){
-        var maxDiff = 200 /3000;
-        var accuracy = 12;
+        var maxDiff = 98/3000;
+        var accuracy = 5;
 
         b = frameBuffer;
         count = 0;
@@ -282,26 +127,58 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         }
     }
 
-    function drawCrossHair(detctX, detctY){
-        ctx.beginPath();
-        ctx.moveTo(0, detctY);
-        ctx.lineTo(640, detctY);
-        ctx.moveTo(detctX, 0);
-        ctx.lineTo(detctX, 360);
-        ctx.strokeStyle = "black";
-        ctx.stroke();
-        ctx.closePath();
-    }
 
-    function updateUIText(){
-        var pixelColor = "rgb(" + pickedColor[0] + ", " + pickedColor[1] + ", " + pickedColor[2] + ")";
-        $('#pickedColor').css('background-color', pixelColor);
-        $('#rVal').html("r: " + pickedColor[0]);
-        $('#gVal').html("b: " + pickedColor[1]);
-        $('#bVal').html("g: " + pickedColor[2]);
-        $('#targetRadius').html("radius: " + $scope.targetRadius);
-        lastCount = count;
-    }
+    /*function detectImage(){
+        nextImg = frameBuffer;
+        ns.getImageData(nextImg);
+        var imageData = ctx.createImageData(w,h);
+        var canvData = imageData.data;
+
+        for (var i = 0; i < canvData.length; i += 4) {
+            canvData[i] = nextImg[i];
+            canvData[i + 1] = nextImg[i + 1];
+            canvData[i + 2] = nextImg[i + 2];
+            canvData[i + 3] = nextImg[i + 3];
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+        
+        test = track.toDataURL("image/png");
+    }*/
+
+    var stabilize = document.getElementById('stabilize');
+    stabilize.addEventListener('click', function () {
+        stabImg = frameBuffer;
+        ns.getImageData(stabImg);
+        //console.log(stabImg);
+
+        client.resemble(test, test);
+    });
+
+    //dodatno koristenje ns.getimagedata
+
+    //TODO implement yRadius/xRadius average for better consistency
+    /*function getRadius(xCenter, yCenter){
+        var s = frameBuffer;
+       // var sL = frameBuffer;
+        var xDis = Math.abs(w-xCenter);
+        ns.getImageData(s, xCenter, h-yCenter, xDis, 1);
+        //ns.getImageData(sL, 0, h-yCenter, xCenter, 1);
+
+        //get farthest x to the right
+        var farthestXRight = 0;
+
+        for(var i=0; i < (xDis*4);i+=4){
+            var isMatch = (Math.abs(s[i] - pickedColor[0]) / 255 < maxDiff
+            && Math.abs(s[i+1] - pickedColor[1]) / 255 < maxDiff
+            && Math.abs(s[i+2] - pickedColor[2]) / 255 < maxDiff);
+            if(isMatch){
+                farthestXRight = i/4;
+            }
+        }
+
+        return farthestXRight;
+    }*/
 
     var flightButton = document.getElementById('flight');
     flightButton.addEventListener('click', function () {
@@ -319,19 +196,6 @@ myApp.controller('Controller', ['$scope', function ($scope) {
             });
             this.textContent = 'Start';
         }
-    });
-
-    var stabilizeButton = document.getElementById('stabilize');
-    stabilizeButton.addEventListener('click', function () {
-
-        if (stab == 0){
-            stab = 1;
-            this.textContent = "Fly";
-        }else{
-            stab = 0;
-            this.textContent = "Stabilize";
-        }
-        client.stabilize();
     });
 
 }]);
@@ -373,16 +237,12 @@ function WsClient() { //WsClient sends drone flight commands to the server
                         cb();
                     });
                     self._takeoffCbs = [];
-                    var flightButton = document.getElementById('flight');
-                    flightButton.textContent = 'Stop';
                     break;
                 case 'land':
                     self._landCbs.forEach(function (cb) {
                         cb();
                     });
                     self._landCbs = [];
-                    var flightButton = document.getElementById('flight');
-                    flightButton.textContent = 'Start';
                     break;
                 case 'on':
                     var event = msg.shift();
@@ -478,10 +338,6 @@ WsClient.prototype.right = function (val) {
     this._send(['right', val]);
 };
 
-WsClient.prototype.left = function (val) {
-    this._send(['left', val]);
-};
-
 WsClient.prototype.clockwise = function (val) {
     this._send(['clockwise', val]);
 };
@@ -490,16 +346,8 @@ WsClient.prototype.up = function (val) {
     this._send(['up', val]);
 };
 
-WsClient.prototype.down = function (val) {
-    this._send(['down', val]);
-};
-
 WsClient.prototype.front = function (val) {
     this._send(['front', val]);
-};
-
-WsClient.prototype.back = function (val) {
-    this._send(['back', val]);
 };
 
 WsClient.prototype.stop = function () {
@@ -510,18 +358,16 @@ WsClient.prototype.camera = function () {
     this._send(['camera']);
 };
 
-WsClient.prototype.stabilize = function () {
-    this._send(['stabilize']);
+WsClient.prototype.resemble = function (stabImg, nextImg) {
+    this._send(['resemble', stabImg, nextImg]);
 };
 
-//Listeners//
-$(function () {
 
-    $('#testCanvas').hide();
+$(function () {
 
     //calculate offset for clicking and hovering on canvas
     var leftOffset = $('.widget-container').width();
-    var topOffset = 0;
+    var topOffset = $('header').height();
     var canvasOffset = {left: leftOffset, top: topOffset};
 
     $('#video').mousemove(function (e) { // mouse move handler
@@ -536,12 +382,7 @@ $(function () {
     });
 
     $('#video').click(function (e) { // mouse click handler
-        /*
-        initRadi = getRadius(detected.x, detected.y);
-        console.log("radius je: ", initRadi);
-        console.log('Detected x is ', detected.x);
-        console.log('Detected y is ', detected.y);
-        */
+
         var canvasX = Math.floor(e.pageX - canvasOffset.left);
         var canvasY = Math.floor(e.pageY - canvasOffset.top);
 
@@ -566,11 +407,13 @@ $(function () {
         $('#hexVal').html('Hex: #' + dColor.toString(16));
     });
 
-    setInterval(function updateUIPixelCount() {
+    /*setInterval(function updateUIPixelCount() {
         $('#pixelCount').html("# Pixels "+lastCount);
-    }, 300);
+    }, 300);*/
 
 });
+
+
 
 
 

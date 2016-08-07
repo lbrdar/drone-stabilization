@@ -37,7 +37,8 @@ var lastCount;
 //    document.getElementById("test").getContext('2d').drawImage(img, 0, 0, 640,360);
 //
 //}
-var img = document.getElementById('test-img');
+var img = new new Image();
+img.src = 'test-img.png';
 var tstctx;
 var imageData;
 window.onload = function(){
