@@ -1,7 +1,6 @@
 var http = require("http"),
     drone = require("dronestream"),
-    ws = require("ws"),
-    resemble = require("node-resemble-js");
+    ws = require("ws");
     cli = require("ar-drone").createClient();
     //keypress = require("keypress");
 
@@ -10,8 +9,7 @@ var http = require("http"),
 cli.config('video:video_channel', 0);
 var staticDir = 'src',
     check = new RegExp('^/' + staticDir, 'i'),
-    check2 = new RegExp('^/bower_components', 'i'),
-    check3 = new RegExp('^/node_modules', 'i'),
+    check2 = new RegExp('^/node_modules', 'i'),
     dist = ".";
 
 var server = http.createServer(function(req, res) {
@@ -34,7 +32,7 @@ server.on('request', function (req, res) {
 
 function handler(req, res, next) {
     var path, read;
-    if (!check.test(req.url) && !check2.test(req.url) && !check3.test(req.url)) {
+    if (!check.test(req.url) && !check2.test(req.url)) {
         return false;
     }
     path = dist + req.url;

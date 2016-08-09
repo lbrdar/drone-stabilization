@@ -1,8 +1,0 @@
-{
-  "name": "node-wARriorDrone",
-  "dependencies": {
-    "jquery": "latest",
-    "bootstrap.css": "latest",
-    "angular": "latest"
-  }
-}

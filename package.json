@@ -1,12 +1,27 @@
 {
-  "name": "node-wARriorDrone",
+  "name": "AR.drone-wall-detection",
   "version": "0.0.1",
-  "author": "Jeff Brookshaw",
+  "description": "Wall detection for AR.Drone 2.0 in Node.js",
+  "main": "app.js",
+  "scripts": {
+  },
+  "keywords": [
+    "ar-drone",
+    "wall detection",
+    "nodejs"
+  ],
+  "repository": "https://github.com/lbrdar/drone-stabilization/tree/wall-detection",
+  "author": "Leo Brdar",
+  "license": "ISC",
   "dependencies": {
     "send": "^0.3.0",
     "ws": "^0.4.31",
     "ar-drone": "git://github.com/felixge/node-ar-drone.git",
     "dronestream": "git://github.com/felixge/node-dronestream.git#soccer",
-    "keypress": "latest"
+    "keypress": "latest",
+
+    "jquery": "latest",
+    "bootstrap": "latest",
+    "angular": "latest"
   }
 }
