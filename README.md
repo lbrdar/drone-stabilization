@@ -4,9 +4,13 @@ Wall Detection API for the AR.Drone2.0 (Node.js)
 Built for Undergraduate Project on Faculty of Engineering in Rijeka, Croatia (2016)
 
 
+## Special thanks to: 
+ 
+- `**Felix 'felixge' Geisendörfer** without whose *node-dronestream* and *ar-drone* none of this would be possible`
+- `**Jeff Brookshaw** whose *node-wARriorDrone* helped a lot in making of this project`
 
 
-The ISC License (ISC)
+###The ISC License (ISC)
 
 Copyright (c) 2016 Leo Brdar
 
