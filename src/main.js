@@ -43,7 +43,7 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     setState('ground');
 
-    var fps = 800;
+    var fps = 10;
     var x;
     var y;
     var xVal;
@@ -59,13 +59,16 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         keepAltitude(0.7);
 
         if (state === "follow") {
-            if (!isNaN(detected.xLeft) && !isNaN(detected.xRight) && (detected.xLeft != 0) && (detected.xRight != 0)){
-                client.front(0.007);
-                //console.log("Oboje okej, idem naprijed");
+            if (!isNaN(detected.xLeft) && !isNaN(detected.xRight) && 
+                (detected.xLeft != 0) && (detected.xRight != 0) && 
+                (count < (0.7*frameBuffer.length) ) ){
+
+                client.front(0.008);
+                console.log("Oboje okej, idem naprijed");
                 //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
             }else{
-                client.back(0.007);
-                //console.log("Nesto ne stima, idem nazad");
+                client.back(0.008);
+                console.log("Nesto ne stima, idem nazad");
                 //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
             }
         }else{
@@ -93,16 +96,16 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     function keepAltitude(normalAltitude){
         if(altitude > normalAltitude){
-            client.down(0.007);
-            console.log("VEĆI SAM ZA ", altitude -normalAltitude);
+            client.down(0.0007);
+            //console.log("VEĆI SAM ZA ", altitude -normalAltitude);
         }else if(altitude < normalAltitude){
-            client.up(0.07);
-            console.log("MANJI SAM ZA ", normalAltitude - altitude);
+            client.up(0.007);
+            //console.log("MANJI SAM ZA ", normalAltitude - altitude);
         }
     }
 
     function detectColor(){
-        var maxDiff = 100 /3000;
+        var maxDiff = 50 /3000;
         var accuracy = 20;
 
         b = frameBuffer;
