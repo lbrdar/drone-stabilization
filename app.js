@@ -156,10 +156,10 @@ process.stdin.on('keypress', function (ch, key) {
                       } 
                       break; //sleti*/
 
-            case 'a': cli.left(0.05); break; //ide u lijevo
-            case 'd': cli.right(0.05); break; //ide u desno
-            case 'w': cli.front(0.05); break; //ide naprijed
-            case 's': cli.back(0.05); break; //ide nazad
+            case 'a': cli.left(0.005); break; //ide u lijevo
+            case 'd': cli.right(0.005); break; //ide u desno
+            case 'w': cli.front(0.005); break; //ide naprijed
+            case 's': cli.back(0.005); break; //ide nazad
 
             case 'i': cli.up(0.05); break; //ide gore
             case 'k': cli.down(0.05); break; //ide dolje
