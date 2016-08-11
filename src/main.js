@@ -4,18 +4,11 @@ var videoDiv = document.getElementById('video');
 var ns = new NodecopterStream(videoDiv, {port: 5555});
 var videoCanvas = videoDiv.querySelector('canvas');
 var frameBuffer = new Uint8Array(videoCanvas.width * videoCanvas.height * 4);
-var pickedColor = [0,0,0];
+var pickedColor = [255,255,255];
 var detected;
 var client = new WsClient();
 
-var track = document.getElementById('track');
-track.width = 640;
-track.height = 360;
-var ctx = track.getContext("2d");
-ctx.fillStyle = "#FF0000";
-
 //options
-var maxDiff = 0.01;
 var w = videoCanvas.width;
 var h = videoCanvas.height;
 var b = frameBuffer;
@@ -25,6 +18,10 @@ var count;
 var lastCount;
 var state;
 var altitude;
+var wallLeft = 0;
+var wallBack = 0;
+var wallRight = 0;
+var wallFront = 0;
 
 
 var CameraModes = {FRONT_FOLLOW:"front-follow", BOTTOM_FOLLOW:"bottom-follow"};
@@ -43,40 +40,45 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     setState('ground');
 
-    var fps = 10;
+    var fps = 50;
     var x;
     var y;
-    var xVal;
-    var yVal;
 
     $scope.mainLoop = function(){ 
         clearInterval(interval);
-        ctx.clearRect(0, 0, w, h);
-
         detectColor();      //color detection method and optimizes the color range
         updateUIText();     //color info
-
         keepAltitude(0.7);
 
-        if (state === "follow") {
-            if (!isNaN(detected.xLeft) && !isNaN(detected.xRight) && 
-                (detected.xLeft != 0) && (detected.xRight != 0) && 
-                (count < (0.7*frameBuffer.length) ) ){
+        if (camera_mode == CameraModes.FRONT_FOLLOW){
 
-                client.front(0.008);
-                console.log("Oboje okej, idem naprijed");
-                //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
+            if (state === "flying") {
+                if (!isNaN(detected.xLeft) && !isNaN(detected.xRight) && (detected.xLeft != 0) && (detected.xRight != 0) && 
+                    (count < (0.7*frameBuffer.length) ) ){              //in case it gets right at the track, instead between
+
+                    client.front(0.008);
+                    console.log("Oboje okej, idem naprijed");
+                    //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
+                }else{
+                    client.back(0.008);
+                    console.log("Nesto ne stima, idem nazad");
+                    //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
+                }
             }else{
-                client.back(0.008);
-                console.log("Nesto ne stima, idem nazad");
-                //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
+                client.stop();
             }
-        }else{
-            client.stop();
+
+        }else if (camera_mode == CameraModes.BOTTOM_FOLLOW){
+            if (state === "flying"){
+                //if (wallFront) { client.back(0.008); console.log("Zid je naprijed"); }
+                if (wallBack) { client.front(0.008); console.log("Zid je iza"); }else{ client.back(0.003); console.log("Sve okej, idem iza."); }
+                //if (wallLeft) { client.right(0.008); console.log("Zid je lijevo"); }
+                //if (wallRight) { client.left(0.008); console.log("Zid je desno"); }
+            }else{
+                client.stop();
+            }
         }
 
-        //xVal = (detected.x - w / 2) / (w / 2);
-        //yVal = (detected.y - h/2) / (h/2);
 
         interval = setInterval($scope.mainLoop, fps);
     }
@@ -96,26 +98,32 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     function keepAltitude(normalAltitude){
         if(altitude > normalAltitude){
-            client.down(0.0007);
+            client.down(0.005);
             //console.log("VEĆI SAM ZA ", altitude -normalAltitude);
         }else if(altitude < normalAltitude){
-            client.up(0.007);
+            client.up(0.05);
             //console.log("MANJI SAM ZA ", normalAltitude - altitude);
         }
     }
 
     function detectColor(){
         var maxDiff = 50 /3000;
-        var accuracy = 20;
+        var accuracy = 5;
+        var edge = 0.1;     //percentage of width/height to take in testing for wall
+        var threshold = 0.005 * (edge*h*w);
 
         b = frameBuffer;
         count = 0;
         var xSumLeft = 0;
         var xSumRight = 0;
         var ySum = 0;
+        var wallFrontSum = 0;
+        var wallLeftSum = 0;
+        var wallBackSum = 0;
+        var wallRightSum = 0;
         ns.getImageData(b);
         averagePixel = {r: 0, g: 0, b: 0};
-        for (var i = 0; i < b.length; i += accuracy) {
+        for (var i = 0; i < b.length; i += accuracy*4) {
 
             var match = true;
             for (var j = 0; j < pickedColor.length; j++) {
@@ -131,14 +139,20 @@ myApp.controller('Controller', ['$scope', function ($scope) {
                 y = i / (w * 4);
                 x = i % (w * 4) / 4;
 
-                if (x > (w / 2)){
-                    xSumRight += x;
-                }else{
-                    xSumLeft += x;
+                if (camera_mode == CameraModes.FRONT_FOLLOW){
+                    if (x > (w / 2)){
+                        xSumRight += x;
+                    }else{
+                        xSumLeft += x;
+                    }
+                    ySum += Math.abs(y - h);
+                }else if(camera_mode == CameraModes.BOTTOM_FOLLOW){
+                    //check if matched pixel is on edges (5% of width or height)
+                    if (x < (edge*w) ){ wallLeftSum++; }
+                    if (x > (w - edge*w) ){ wallRightSum++; }
+                    if (y < (edge*h) ){ wallBackSum++; }
+                    if (y > (h - edge*h) ){ wallFrontSum++; }
                 }
-                ySum += Math.abs(y - h);
-                //ctx.fillStyle = "rgb(" + b[i] + "," + b[i + 1] + "," + b[i + 2] + ")";
-                //ctx.fillRect(x, Math.abs(y - h), 1, 1);
 
                 //Used for color surfing
                 averagePixel.r += b[i];
@@ -149,6 +163,14 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         averagePixel.r = Math.round(averagePixel.r / count);
         averagePixel.g = Math.round(averagePixel.g / count);
         averagePixel.b = Math.round(averagePixel.b / count);
+
+        //total num of pixels in each edge ==> edge*h*w
+        //we check to see if num of matched pixels is greater than 0.5% of total num to ignore possible noise
+        if (wallFrontSum >= threshold){ wallFront = 1; }else{ wallFront = 0; }
+        if (wallBackSum >= threshold){ wallBack = 1; }else{ wallBack = 0; }
+        if (wallLeftSum >= threshold){ wallLeft = 1; }else{ wallLeft = 0; }
+        if (wallRightSum >= threshold){ wallRight = 1; }else{ wallRight = 0; }
+
         detected = {xLeft: xSumLeft / count, xRight: xSumRight / count, y: ySum / count};
 
         if (averagePixel.r > pickedColor[0]) {
@@ -184,7 +206,7 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         if (flightPic.src == 'http://localhost:3000/src/img/takeoff.png') {
             setState('takeoff');
             client.takeoff(function () {
-                setState('follow');
+                setState('flying');
             });
             flightPic.setAttribute("src", "http://localhost:3000/src/img/landing.png");
 
