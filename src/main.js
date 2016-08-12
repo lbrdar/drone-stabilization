@@ -40,7 +40,7 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     setState('ground');
 
-    var fps = 50;
+    var fps = 100;
     var x;
     var y;
 
@@ -70,10 +70,11 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
         }else if (camera_mode == CameraModes.BOTTOM_FOLLOW){
             if (state === "flying"){
-                //if (wallFront) { client.back(0.008); console.log("Zid je naprijed"); }
-                if (wallBack) { client.front(0.008); console.log("Zid je iza"); }else{ client.back(0.003); console.log("Sve okej, idem iza."); }
-                //if (wallLeft) { client.right(0.008); console.log("Zid je lijevo"); }
-                //if (wallRight) { client.left(0.008); console.log("Zid je desno"); }
+                if (wallFront) { client.back(0.01); console.log("Zid je naprijed"); }
+                if (wallBack) { client.front(0.01); console.log("Zid je iza"); }
+                if (wallLeft) { client.right(0.01); console.log("Zid je lijevo"); }
+                if (wallRight) { client.left(0.01); console.log("Zid je desno"); }
+                if (!wallFront && !wallRight && !wallLeft && !wallBack){ client.stop(); }
             }else{
                 client.stop();
             }
@@ -107,20 +108,20 @@ myApp.controller('Controller', ['$scope', function ($scope) {
     }
 
     function detectColor(){
-        var maxDiff = 50 /3000;
-        var accuracy = 5;
+        var maxDiff = 60 /3000;
+        var accuracy = 3;
         var edge = 0.1;     //percentage of width/height to take in testing for wall
-        var threshold = 0.005 * (edge*h*w);
+        var threshold = 0.01 * (edge*h*w);
 
         b = frameBuffer;
         count = 0;
         var xSumLeft = 0;
         var xSumRight = 0;
         var ySum = 0;
-        var wallFrontSum = 0;
-        var wallLeftSum = 0;
-        var wallBackSum = 0;
-        var wallRightSum = 0;
+        var wallFrontCount = 0;
+        var wallLeftCount = 0;
+        var wallBackCount = 0;
+        var wallRightCount = 0;
         ns.getImageData(b);
         averagePixel = {r: 0, g: 0, b: 0};
         for (var i = 0; i < b.length; i += accuracy*4) {
@@ -147,11 +148,13 @@ myApp.controller('Controller', ['$scope', function ($scope) {
                     }
                     ySum += Math.abs(y - h);
                 }else if(camera_mode == CameraModes.BOTTOM_FOLLOW){
-                    //check if matched pixel is on edges (5% of width or height)
-                    if (x < (edge*w) ){ wallLeftSum++; }
-                    if (x > (w - edge*w) ){ wallRightSum++; }
-                    if (y < (edge*h) ){ wallBackSum++; }
-                    if (y > (h - edge*h) ){ wallFrontSum++; }
+                    //check if matched pixel is on edges
+                    //ignoring corners for now, because they are making it more difficult to determine where the wall is
+                    //TODO: solve special case when wall is only on the corner
+                    if ( (x < edge*w) && (y > edge*h) && (y < (h - edge*h)) ){ wallLeftCount++; }
+                    if ( (x > (w - edge*w)) && (y > edge*h) && (y < (h - edge*h)) ){ wallRightCount++; }
+                    if ( (y < edge*h) && (x > edge*w) && (x < (w - edge*w)) ){ wallBackCount++; }
+                    if ( (y > (h - edge*h)) && (x > edge*w) && (x < (w - edge*w)) ){ wallFrontCount++; }
                 }
 
                 //Used for color surfing
@@ -165,11 +168,11 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         averagePixel.b = Math.round(averagePixel.b / count);
 
         //total num of pixels in each edge ==> edge*h*w
-        //we check to see if num of matched pixels is greater than 0.5% of total num to ignore possible noise
-        if (wallFrontSum >= threshold){ wallFront = 1; }else{ wallFront = 0; }
-        if (wallBackSum >= threshold){ wallBack = 1; }else{ wallBack = 0; }
-        if (wallLeftSum >= threshold){ wallLeft = 1; }else{ wallLeft = 0; }
-        if (wallRightSum >= threshold){ wallRight = 1; }else{ wallRight = 0; }
+        //we check to see if num of matched pixels is greater than 1% of total num to ignore possible noise
+        if (wallFrontCount >= threshold){ wallFront = 1; }else{ wallFront = 0; }
+        if (wallBackCount >= threshold){ wallBack = 1; }else{ wallBack = 0; }
+        if (wallLeftCount >= threshold){ wallLeft = 1; }else{ wallLeft = 0; }
+        if (wallRightCount >= threshold){ wallRight = 1; }else{ wallRight = 0; }
 
         detected = {xLeft: xSumLeft / count, xRight: xSumRight / count, y: ySum / count};
 
