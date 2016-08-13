@@ -1,27 +1,23 @@
 var myApp = angular.module('myApp', []);
-
+var client = new WsClient();
 var videoDiv = document.getElementById('video');
 var ns = new NodecopterStream(videoDiv, {port: 5555});
 var videoCanvas = videoDiv.querySelector('canvas');
-var frameBuffer = new Uint8Array(videoCanvas.width * videoCanvas.height * 4);
-var pickedColor = [255,255,255];
-var detected;
-var client = new WsClient();
-
-//options
 var w = videoCanvas.width;
 var h = videoCanvas.height;
+var frameBuffer = new Uint8Array(w * h * 4);
+
+var pickedColor = [255,255,255];
+
 var b = frameBuffer;
 var c = new Uint8Array(4);
 var averagePixel;
 var count;
-var lastCount;
 var state;
 var altitude;
-var wallLeft = 0;
-var wallBack = 0;
-var wallRight = 0;
-var wallFront = 0;
+var lowBattery = 0;
+var detected;
+var wall = {front: 0, back: 0, left: 0, right: 0};
 
 
 var CameraModes = {FRONT_FOLLOW:"front-follow", BOTTOM_FOLLOW:"bottom-follow"};
@@ -33,6 +29,7 @@ myApp.controller('Controller', ['$scope', function ($scope) {
     client.on('navdata', function loginNavData(navdata){
         if(navdata != null && navdata.demo != null) {
             altitude = navdata.demo.altitudeMeters;
+            if (navdata.droneState.lowBattery){ lowBattery = 1;}
             $('#battery').attr('value', navdata.demo.batteryPercentage);
             $('#altitude').html(navdata.demo.altitudeMeters);
         }
@@ -40,7 +37,7 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     setState('ground');
 
-    var fps = 100;
+    var fps = 50;
     var x;
     var y;
 
@@ -57,11 +54,11 @@ myApp.controller('Controller', ['$scope', function ($scope) {
                     (count < (0.7*frameBuffer.length) ) ){              //in case it gets right at the track, instead between
 
                     client.front(0.008);
-                    console.log("Oboje okej, idem naprijed");
+                    console.log("Everythig's okay, going forward");
                     //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
                 }else{
                     client.back(0.008);
-                    console.log("Nesto ne stima, idem nazad");
+                    console.log("Something's not okay, going backward");
                     //console.log("Detected x left is ", detected.xLeft, ", detected x right is ", detected.xRight);
                 }
             }else{
@@ -70,11 +67,11 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
         }else if (camera_mode == CameraModes.BOTTOM_FOLLOW){
             if (state === "flying"){
-                if (wallFront) { client.back(0.01); console.log("Zid je naprijed"); }
-                if (wallBack) { client.front(0.01); console.log("Zid je iza"); }
-                if (wallLeft) { client.right(0.01); console.log("Zid je lijevo"); }
-                if (wallRight) { client.left(0.01); console.log("Zid je desno"); }
-                if (!wallFront && !wallRight && !wallLeft && !wallBack){ client.stop(); }
+                if (wall.front) { client.back(0.01); console.log("Wall is infront"); }
+                if (wall.back) { client.front(0.01); console.log("Wall is behind"); }
+                if (wall.left) { client.right(0.01); console.log("Wall is on the left"); }
+                if (wall.right) { client.left(0.01); console.log("Wall is on the right"); }
+                if (!wall.front && !wall.right && !wall.left && !wall.back){ client.stop(); }
             }else{
                 client.stop();
             }
@@ -99,31 +96,29 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     function keepAltitude(normalAltitude){
         if(altitude > normalAltitude){
-            client.down(0.005);
-            //console.log("VEĆI SAM ZA ", altitude -normalAltitude);
+            client.down(0.1);
+            //console.log("Higher than normal. Altitude diff = ", altitude -normalAltitude);
         }else if(altitude < normalAltitude){
-            client.up(0.05);
-            //console.log("MANJI SAM ZA ", normalAltitude - altitude);
+            client.up(0.1);
+            //console.log("Lower than normal. Altitude diff = ", normalAltitude - altitude);
         }
     }
 
     function detectColor(){
-        var maxDiff = 60 /3000;
+        var maxDiff = 100 /3000;
         var accuracy = 3;
-        var edge = 0.1;     //percentage of width/height to take in testing for wall
-        var threshold = 0.01 * (edge*h*w);
-
-        b = frameBuffer;
-        count = 0;
+        var edge = 0.15;     //percentage of width/height to take in testing for wall
+        var threshold = 0.005 * (edge*h*w);  //ignore if detected amount od pixels is less than 0,5% of total num of pixels in edge (noise)
         var xSumLeft = 0;
         var xSumRight = 0;
         var ySum = 0;
-        var wallFrontCount = 0;
-        var wallLeftCount = 0;
-        var wallBackCount = 0;
-        var wallRightCount = 0;
-        ns.getImageData(b);
+        var wallCount = {front: 0, back: 0, left: 0, right: 0};
+
         averagePixel = {r: 0, g: 0, b: 0};
+        count = 0;
+        b = frameBuffer;
+        ns.getImageData(b);
+        
         for (var i = 0; i < b.length; i += accuracy*4) {
 
             var match = true;
@@ -149,12 +144,11 @@ myApp.controller('Controller', ['$scope', function ($scope) {
                     ySum += Math.abs(y - h);
                 }else if(camera_mode == CameraModes.BOTTOM_FOLLOW){
                     //check if matched pixel is on edges
-                    //ignoring corners for now, because they are making it more difficult to determine where the wall is
                     //TODO: solve special case when wall is only on the corner
-                    if ( (x < edge*w) && (y > edge*h) && (y < (h - edge*h)) ){ wallLeftCount++; }
-                    if ( (x > (w - edge*w)) && (y > edge*h) && (y < (h - edge*h)) ){ wallRightCount++; }
-                    if ( (y < edge*h) && (x > edge*w) && (x < (w - edge*w)) ){ wallBackCount++; }
-                    if ( (y > (h - edge*h)) && (x > edge*w) && (x < (w - edge*w)) ){ wallFrontCount++; }
+                    if ( (x < edge*w) && (y > edge*h) && (y < (h - edge*h)) ){ wallCount.left++; }
+                    if ( (x > (w - edge*w)) && (y > edge*h) && (y < (h - edge*h)) ){ wallCount.right++; }
+                    if ( (y < edge*h) && (x > edge*w) && (x < (w - edge*w)) ){ wallCount.back++; }
+                    if ( (y > (h - edge*h)) && (x > edge*w) && (x < (w - edge*w)) ){ wallCount.front++; }
                 }
 
                 //Used for color surfing
@@ -163,19 +157,17 @@ myApp.controller('Controller', ['$scope', function ($scope) {
                 averagePixel.b += b[i + 2];
             }
         }
-        averagePixel.r = Math.round(averagePixel.r / count);
-        averagePixel.g = Math.round(averagePixel.g / count);
-        averagePixel.b = Math.round(averagePixel.b / count);
 
-        //total num of pixels in each edge ==> edge*h*w
-        //we check to see if num of matched pixels is greater than 1% of total num to ignore possible noise
-        if (wallFrontCount >= threshold){ wallFront = 1; }else{ wallFront = 0; }
-        if (wallBackCount >= threshold){ wallBack = 1; }else{ wallBack = 0; }
-        if (wallLeftCount >= threshold){ wallLeft = 1; }else{ wallLeft = 0; }
-        if (wallRightCount >= threshold){ wallRight = 1; }else{ wallRight = 0; }
+        if (wallCount.front >= threshold){ wall.front = 1; }else{ wall.front = 0; }
+        if (wallCount.back >= threshold){ wall.back = 1; }else{ wall.back = 0; }
+        if (wallCount.left >= threshold){ wall.left = 1; }else{ wall.left = 0; }
+        if (wallCount.right >= threshold){ wall.right = 1; }else{ wall.right = 0; }
 
         detected = {xLeft: xSumLeft / count, xRight: xSumRight / count, y: ySum / count};
 
+        averagePixel.r = Math.round(averagePixel.r / count);
+        averagePixel.g = Math.round(averagePixel.g / count);
+        averagePixel.b = Math.round(averagePixel.b / count);
         if (averagePixel.r > pickedColor[0]) {
             pickedColor[0]++;
         } else if (averagePixel.r < pickedColor[0]) {
@@ -200,18 +192,21 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         $('#rVal').html("r: " + pickedColor[0]);
         $('#gVal').html("b: " + pickedColor[1]);
         $('#bVal').html("g: " + pickedColor[2]);
-        lastCount = count;
     }
 
     var flightButton = document.getElementById('flight');
     var flightPic = document.getElementById('flightPic');
     flightButton.addEventListener('click', function () {
         if (flightPic.src == 'http://localhost:3000/src/img/takeoff.png') {
-            setState('takeoff');
-            client.takeoff(function () {
-                setState('flying');
-            });
-            flightPic.setAttribute("src", "http://localhost:3000/src/img/landing.png");
+            if (!lowBattery){
+                setState('takeoff');
+                client.takeoff(function () {
+                    setState('flying');
+                });
+                flightPic.setAttribute("src", "http://localhost:3000/src/img/landing.png");
+            }else{
+                $('#lowBattery').css("display", "");
+            }
 
         } else {
             setState('land');
@@ -277,6 +272,10 @@ function WsClient() { //WsClient sends drone flight commands to the server
                 default:
                     console.error('unknown message: ' + kind);
             }
+        };
+        self._conn.onclose = function () {
+            self._connected = false;
+            console.log("Connection closed");
         };
     };
 
@@ -366,10 +365,6 @@ WsClient.prototype.left = function (val) {
     this._send(['left', val]);
 };
 
-WsClient.prototype.clockwise = function (val) {
-    this._send(['clockwise', val]);
-};
-
 WsClient.prototype.up = function (val) {
     this._send(['up', val]);
 };
@@ -394,16 +389,11 @@ WsClient.prototype.camera = function () {
     this._send(['camera']);
 };
 
-WsClient.prototype.stabilize = function () {
-    this._send(['stabilize']);
-};
 
 //Listeners//
 $(function () {
 
-    $('#testCanvas').hide();
-
-    //calculate offset for clicking and hovering on canvas
+    //calculate offset for clicking and hovering on video canvas
     var leftOffset = $('.widget-container').width();
     var topOffset = 0;
     var canvasOffset = {left: leftOffset, top: topOffset};
@@ -430,24 +420,12 @@ $(function () {
         pickedColor[0] = c[0];
         pickedColor[1] = c[1];
         pickedColor[2] = c[2];
-
         var pixelColor = "rgb(" + pickedColor[0] + ", " + pickedColor[1] + ", " + pickedColor[2] + ")";
         $('#pickedColor').css('background-color', pixelColor);
-
-        //color info
         $('#rVal').html("r" + c[0]);
         $('#gVal').html("b" + c[1]);
         $('#bVal').html("g" + c[2]);
-
-        $('#rgbVal').val(c[0] + ',' + c[1] + ',' + c[2]);
-        $('#rgbaVal').val(c[0] + ',' + c[1] + ',' + c[2] + ',' + c[3]);
-        var dColor = c[2] + 256 * c[1] + 65536 * c[0];
-        $('#hexVal').html('Hex: #' + dColor.toString(16));
     });
-
-    /*setInterval(function updateUIPixelCount() {
-        $('#pixelCount').html("# Pixels "+lastCount);
-    }, 300);*/
 
 });
 
