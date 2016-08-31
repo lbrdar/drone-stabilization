@@ -3,18 +3,22 @@ Stabilization & Wall Detection APIs for the AR.Drone2.0 (Node.js)
 
 Built for Undergraduate Project on Faculty of Engineering in Rijeka, Croatia (2016)
 
-There are two available branches, one contains stabilization solution and the second one contains solution for wall detection.
-
 
 ## Starting: 
-- **connect to your drone's wi-fi network
-- **`cd` to root of project
-- **run `npm install` to install all dependencies
-- **run `node app.js` to start the server
-- **navigate to `localhost:3000` in your web browser
+
+There are two available branches, one contains stabilization solution and the second one contains solution for wall detection.
+Choose the one you need and clone it.
+
+After succesfully cloning desired branch, follow this instruction to set up solution:
+
+- connect to your drone's wi-fi network
+- `cd` to root of project
+- run `npm install` to install all dependencies
+- run `node app.js` to start the server
+- navigate to `localhost:3000` in your web browser
 
 ## Short video demonstration:
-- **
+- 
 
 ## Special thanks to: 
  
