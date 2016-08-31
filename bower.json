@@ -1,5 +1,5 @@
 {
-  "name": "node-wARriorDrone",
+  "name": "AR.drone-stabilization",
   "dependencies": {
     "jquery": "latest",
     "bootstrap.css": "latest",

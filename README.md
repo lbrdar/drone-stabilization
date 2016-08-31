@@ -1,14 +1,18 @@
-# node-wARriorDrone
-Color Detection API for the AR.Drone2.0 (Node.js)
+# AR.Drone 2.0 stabilization
+Stabilization API for the AR.Drone2.0 (Node.js)
 
-Built for WSU Undergraduate Research Seminar (2015)
+Built for Undergraduate Project on Faculty of Engineering in Rijeka, Croatia (2016)
 
-#Website
-https://warrior-drone-web.herokuapp.com/#!/
 
-The MIT License (MIT)
+## Special thanks to: 
+ 
+- **Felix 'felixge' Geisendörfer** without whose *node-dronestream* and *ar-drone* none of this would be possible
+- **Jeff Brookshaw** whose *node-wARriorDrone* helped a lot in making of this project
 
-Copyright (c) 2015 Jeff Brookshaw
+
+###The ISC License (ISC)
+
+Copyright (c) 2016 Nikol Kitić
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

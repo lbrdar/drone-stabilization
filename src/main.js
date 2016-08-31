@@ -8,18 +8,12 @@ var pickedColor = [172, 107, 35];
 var detected;
 var client = new WsClient();
 
-/*//TODO replace xVal/yVal with PID controllers implementation
-var xPID = new PID({pGain: 0.1, iGain: 0, dGain: 0});
-var yPID = new PID({pGain: 0.1, iGain: 0, dGain: 0});
-var zPID = new PID({pGain: 0.1, iGain: 0, dGain: 0});*/
-
 var track = document.getElementById('track');
 track.width = 640;
 track.height = 360;
 var ctx = track.getContext("2d");
 ctx.fillStyle = "#FF0000";
 
-//options
 var maxDiff = 0.01;
 var w = videoCanvas.width;
 var h = videoCanvas.height;
@@ -27,7 +21,6 @@ var b = frameBuffer;
 var c = new Uint8Array(4);
 var averagePixel;
 var count;
-var lastCount;
 var state;
 var initRadi = 0;
 var stab = 0;
@@ -41,21 +34,17 @@ function getMaxOfArray(numArray) {
   return Math.max.apply(null, numArray);
 }
 
-//TODO implement yRadius/xRadius average for better consistency
 function getRadius(xCenter, yCenter){
     var s = frameBuffer;
     var n = 5;      //number of rows to be taken in calculation of radius
     var maxRadi = 0;
-   // var sL = frameBuffer;
     var xDis = Math.abs(w-xCenter);
     ns.getImageData(s, xCenter, h-yCenter, xDis, n);
-    //ns.getImageData(sL, 0, h-yCenter, xCenter, 1);
 
     //get farthest x to the right
     var farthestXRight = [0];
 
     for(var j=0; j < n; j++){
-        //xDis*4 je duzina jednog reda
         for(var i=0; i < (xDis*4);i+=4){
             var isMatch = (Math.abs(s[i + (xDis*4*j)] - pickedColor[0]) / 255 < maxDiff
             && Math.abs(s[i+1 + (xDis*4*j)] - pickedColor[1]) / 255 < maxDiff
@@ -75,9 +64,7 @@ myApp.controller('Controller', ['$scope', function ($scope) {
    var tempNavdata;
     client.on('navdata', function loginNavData(navdata){
         if(navdata != null && navdata.demo != null) {
-            //console.log("altitude: " + navdata.demo.altitudeMeters + " battery: " + navdata.demo.batteryPercentage);
             $scope.battery = navdata.demo.batteryPercentage;
-            $scope.altitude = navdata.demo.altitudeMeters;
             tempNavdata = navdata;
             $('#battery').attr('value', navdata.demo.batteryPercentage);
         }
@@ -85,8 +72,6 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     $scope.fps = 500;
     $scope.battery;
-    $scope.altitude;
-    $scope.altitudeTarget = 1;
 
     setState('ground');
 
@@ -96,6 +81,7 @@ myApp.controller('Controller', ['$scope', function ($scope) {
     var yVal;
     var radi;
     var radidiff;
+
     $scope.mainLoop = function(){ //main function for reading drone stream and rendering detection visualization
             clearInterval(interval);
 
@@ -128,11 +114,9 @@ myApp.controller('Controller', ['$scope', function ($scope) {
                 //Uncomment to log location info
                 // console.log("|xVal: "+xVal+"|# Detected: "+count+"|X: "+Math.round(detected.x)+ "|Y: "+Math.round(detected.y)+"|AvgPixel: "+averagePixel.r);
 
-                //If tracking a color submit movement commands based on how far the detected object is from the center of the field of view
                 if (state === "follow" && !isNaN(xVal) && !isNaN(yVal)) {
                     if (camera_mode == CameraModes.FRONT_FOLLOW) {
                         followFront(xVal,yVal,radi,radidiff);
-
                     } else if(camera_mode == CameraModes.BOTTOM_FOLLOW){
                         followBottom(xVal,yVal);
                     }
@@ -150,12 +134,6 @@ myApp.controller('Controller', ['$scope', function ($scope) {
 
     var interval = setInterval($scope.mainLoop, $scope.fps);
 
-    //Sets the radius that the drone will attempt to maintain while tracking
-    $scope.targetRadius = 0;
-    $scope.setTargetRadius = function() {
-        $scope.targetRadius = getRadius(detected.x, detected.y);
-    }
-
     $scope.switchCamera = function() {
         // access the head camera
 
@@ -170,63 +148,52 @@ myApp.controller('Controller', ['$scope', function ($scope) {
     }
 
     function followBottom(xVal,yVal){
-        client.right(xVal/6);
-        client.back(yVal/6);
-        if($scope.altitude < $scope.altitudeTarget) {
-            client.up(.05);
-        }
-        else {
-            client.down(.05);
-        }
+        //TODO: add following with bottom camera
+        client.stop();
     }
 
     function followFront(xVal, yVal, radi, radidiff){
         
         if (xVal > 0) {
+            console.log('Right' + xVal);
             client.right(xVal / 20);
         }else if(xVal < 0){
+            console.log('Left' + xVal);
             client.left(-xVal / 20);
         }else{
+            //console.log('Stop');
             client.stop();
         }
         
-        if(yVal > 0){
+        if(yVal < 0){
+            console.log('Up' + yVal);
             client.up(yVal / 20);
-        }else if(yVal < 0){
+        }else if(yVal > 0){
+            console.log('Down' + yVal);
             client.down(-yVal / 20);
         }else{
+            //console.log('Stop');
             client.stop();
         }
         
         
         if (radidiff < 0) {
+            console.log('Front' + radidiff);
             client.front(.02);
         }
         else if(radidiff > 0) {
+            console.log('Back' + radidiff);
             client.back(.02);
         } else{
+            //console.log('Stop');
             client.stop();
         }
-
-        /*client.clockwise(xVal / 12);
-        if(yVal > 0)
-        client.down(yVal / 16);
-        if(radi > 10) {
-            if (radidiff < 0) {
-                client.front(.02);
-            }
-            else if(radidiff > 0) {
-                client.back(.02);
-            }
-        } else{
-            client.stop();
-        }*/
     }
 
 
     function detectColor(){
-        var maxDiff = 200 /3000;
-        var accuracy = 12;
+        var maxDiff = 100 /3000;
+        var accuracy = 3;
 
         b = frameBuffer;
         count = 0;
@@ -234,7 +201,8 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         var ySum = 0;
         ns.getImageData(b);
         averagePixel = {r: 0, g: 0, b: 0};
-        for (var i = 0; i < b.length; i += accuracy) {
+
+        for (var i = 0; i < b.length; i += accuracy*4) {
 
             var match = true;
             for (var j = 0; j < pickedColor.length; j++) {
@@ -299,8 +267,6 @@ myApp.controller('Controller', ['$scope', function ($scope) {
         $('#rVal').html("r: " + pickedColor[0]);
         $('#gVal').html("b: " + pickedColor[1]);
         $('#bVal').html("g: " + pickedColor[2]);
-        $('#targetRadius').html("radius: " + $scope.targetRadius);
-        lastCount = count;
     }
 
     var flightButton = document.getElementById('flight');
@@ -335,7 +301,6 @@ myApp.controller('Controller', ['$scope', function ($scope) {
     });
 
 }]);
-
 
 function setState(val) {
     console.log('new state: ' + val);
@@ -536,12 +501,7 @@ $(function () {
     });
 
     $('#video').click(function (e) { // mouse click handler
-        /*
-        initRadi = getRadius(detected.x, detected.y);
-        console.log("radius je: ", initRadi);
-        console.log('Detected x is ', detected.x);
-        console.log('Detected y is ', detected.y);
-        */
+
         var canvasX = Math.floor(e.pageX - canvasOffset.left);
         var canvasY = Math.floor(e.pageY - canvasOffset.top);
 
@@ -554,21 +514,10 @@ $(function () {
 
         var pixelColor = "rgb(" + pickedColor[0] + ", " + pickedColor[1] + ", " + pickedColor[2] + ")";
         $('#pickedColor').css('background-color', pixelColor);
-
-        //color info
         $('#rVal').html("r" + c[0]);
         $('#gVal').html("b" + c[1]);
         $('#bVal').html("g" + c[2]);
-
-        $('#rgbVal').val(c[0] + ',' + c[1] + ',' + c[2]);
-        $('#rgbaVal').val(c[0] + ',' + c[1] + ',' + c[2] + ',' + c[3]);
-        var dColor = c[2] + 256 * c[1] + 65536 * c[0];
-        $('#hexVal').html('Hex: #' + dColor.toString(16));
     });
-
-    setInterval(function updateUIPixelCount() {
-        $('#pixelCount').html("# Pixels "+lastCount);
-    }, 300);
 
 });
 

@@ -1,7 +1,18 @@
 {
-  "name": "node-wARriorDrone",
+  "name": "AR.drone-stabilization",
   "version": "0.0.1",
-  "author": "Jeff Brookshaw",
+  "description": "Stabilization for AR.Drone 2.0 in Node.js",
+  "main": "app.js",
+  "scripts": {
+  },
+  "keywords": [
+    "ar-drone",
+    "stabilization",
+    "nodejs"
+  ],
+  "repository": "https://github.com/lbrdar/drone-stabilization/tree/WIP",
+  "author": "Nikol Kitić",
+  "license": "ISC",
   "dependencies": {
     "send": "^0.3.0",
     "ws": "^0.4.31",

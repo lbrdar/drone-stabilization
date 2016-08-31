@@ -1,9 +1,8 @@
 var http = require("http"),
     drone = require("dronestream"),
     ws = require("ws"),
-    resemble = require("node-resemble-js");
     cli = require("ar-drone").createClient();
-    //keypress = require("keypress");
+    keypress = require("keypress");
 
 //Turns on all nav data
 //cli.config('general:navdata_demo', 'FALSE');
@@ -70,13 +69,11 @@ wsServer.on('connection', function(conn) {
                 });
                 break;
             case 'takeoff':
-                //takenOff = 1;
                 cli.takeoff(function() {
                     send(['takeoff']);
                 });
                 break;
             case 'land':
-                //takenOff = 0;
                 cli.land(function() {
                     send(['land']);
                 });
@@ -128,59 +125,35 @@ wsServer.on('connection', function(conn) {
     });
 });
 
-var keypress = require('keypress');
-
 var stdin = process.openStdin(); 
-require('tty').setRawMode(true);  
+process.stdin.setRawMode(true);   
 
 // make `process.stdin` begin emitting "keypress" events 
 keypress(process.stdin);
 
-//pocetno stanje dorna (ne leti)
-//var takenOff = 0; 
 var fly = 1;
 // listen for the "keypress" event 
 process.stdin.on('keypress', function (ch, key) {
     if (key && fly){
         switch(key.name){
-            /*case 't': if(takenOff==0){
-                        cli.takeoff(function() {
-                            send(['takeoff']);
-                        });    
-                        takenOff=1;
-                      } 
-                      break; //poleti
-            case 'g': if(takenOff==1){
-                        cli.land(function() {
-                            send(['land']);
-                        });    
-                        takenOff=0;
-                      } 
-                      break; //sleti*/
 
-            case 'a': cli.left(0.05); break; //ide u lijevo
-            case 'd': cli.right(0.05); break; //ide u desno
-            case 'w': cli.front(0.05); break; //ide naprijed
-            case 's': cli.back(0.05); break; //ide nazad
+            case 'a': cli.left(0.05); break; 
+            case 'd': cli.right(0.05); break; 
+            case 'w': cli.front(0.05); break; 
+            case 's': cli.back(0.05); break; 
 
-            case 'i': cli.up(0.05); break; //ide gore
-            case 'k': cli.down(0.05); break; //ide dolje
-            case 'l': cli.clockwise(0.05); break; //rotacija desno
-            case 'j': cli.counterClockwise(0.05); break; //rotacija lijevo
+            case 'i': cli.up(0.05); break; 
+            case 'k': cli.down(0.05); break; 
+            case 'l': cli.clockwise(0.05); break; 
+            case 'j': cli.counterClockwise(0.05); break; 
 
             case 'c': 
                 console.log('Quitting')
                 process.stdin.pause();
-                // Land the drone incase it's flying
                 cli.stop();
                 cli.land();
-                
-                //TODO: naci naredbu za exit();
-                // close the connection to the drone
-                // stops your process hanging
-                //client._udpControl.close(); 
-                exit();
-            break;
+                process.exit();
+                break;
             default: break;
         }
     }
