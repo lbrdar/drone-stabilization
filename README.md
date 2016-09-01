@@ -9,7 +9,7 @@ Built for Undergraduate Project on Faculty of Engineering in Rijeka, Croatia (20
 There are two available branches, one contains stabilization solution and the second one contains solution for wall detection.
 Choose the one you need and clone it.
 
-After succesfully cloning desired branch, follow this instruction to set up solution:
+After succesfully cloning the desired branch, follow these instructions to set up solution:
 
 - connect to your drone's wi-fi network
 - `cd` to root of project
@@ -18,7 +18,7 @@ After succesfully cloning desired branch, follow this instruction to set up solu
 - navigate to `localhost:3000` in your web browser
 
 ## Short video demonstration:
-- 
+- [AR.Drone 2.0 stabilization & wall detection](https://www.youtube.com/watch?v=90MSqgXhRJc)
 
 ## Special thanks to: 
  
